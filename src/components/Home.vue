@@ -23,7 +23,12 @@
             <div
               class="date-range-picker date-range-start"
               :class="disabled ? 'disabled' : ''">
-              <input type="text" name="dateStart" v-model="fromValue">
+              <input
+                type="text"
+                name="dateStart"
+                v-model="fromValue"
+                :placeholder="placeholderFrom"
+                v-mask="'##/##/####'">
               <datepicker
                 :inline="true"
                 :format="format"
@@ -33,14 +38,18 @@
                 v-model="customModel.customMinDate"
                 v-on:selected="highlightFrom"
                 v-on:cleared="clear"
-                v-on:changedMonth="changedMonthFrom"
-                v-on:input="input">
+                v-on:changedMonth="changedMonthFrom">
               </datepicker>
             </div>
             <div
               class="date-range-picker date-range-end"
               :class="disabled ? 'disabled' : ''">
-              <input type="text" name="dateEnd" v-model="toValue">
+              <input
+                type="text"
+                name="dateEnd"
+                v-model="toValue"
+                :placeholder="placeholderTo"
+                v-mask="'##/##/####'">
               <datepicker
                 :inline="true"
                 :highlighted="highlighted"
@@ -67,9 +76,11 @@ import ElementUI from 'element-ui'
 import Datepicker from 'vuejs-datepicker'
 import moment from 'moment'
 import VueMoment from 'vue-moment'
+import VueMask from 'v-mask'
+
 Vue.use(VueMoment)
 Vue.use(ElementUI)
-
+Vue.use(VueMask);
 
 
 const pickerShortcuts = () => {
@@ -101,36 +112,35 @@ export default {
       fromValue:'',
       toValue: '',
       highlighted: {},
-      openDateFrom: new Date(),
-      openDateTo: new Date(new Date().setMonth(new Date().getMonth() + 1)),
       shortcuts: pickerShortcuts(),
       disabled: true,
+      openDateFrom: new Date(),
+      openDateTo: new Date(new Date().setMonth(new Date().getMonth() + 1)),
       controlFromMonth: '',
-      controlToMonth: new Date(new Date().setMonth(new Date().getMonth() - 1))
+      controlToMonth: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      placeholderFrom: moment().format('L'),
+      placeholderTo: moment().add(1, 'month').format('L'),
     }
   },
   watch: {
-    // watch date on click on presets
-    openDateFrom() {
-      // console.log(Date.parse(this.openDateFrom))
-    },
+    // отслеживаем изменение в филдах
+    // и транслируем в календаре
     fromValue() {
       let timeFromValue = new Date(this.fromValue)
       if ( !isNaN(timeFromValue.getTime() )) {
+        console.log(timeFromValue);
         this.customModel.customMinDate = timeFromValue
+        this.highlighted.from = timeFromValue
       }
     },
     toValue() {
       let timeToValue = new Date(this.toValue)
       if ( !isNaN(timeToValue.getTime() )) {
-        this.customModel.customMaxDate = timeToValue
+        this.highlighted.to = timeToValue
       }
     }
   },
   methods: {
-    input(val) {
-      // console.log(val)
-    },
     filterDate(date) {
       return moment(date).format('l')
     },
@@ -154,6 +164,8 @@ export default {
       }
     },
     clear() {
+      this.fromValue = ''
+      this.toValue = ''
       this.highlighted = {}
     },
     callbackPreset(type) {
@@ -196,7 +208,6 @@ export default {
     },
     // селект по первому календарю
     highlightFrom(val) {
-
       if (typeof this.highlighted.from === "undefined") {
         this.highlighted = {
           to: this.highlighted.to,
@@ -204,7 +215,6 @@ export default {
         };
         this.highlighted.from = val;
         this.fromValue = this.filterDate(val);
-
       } else if (typeof this.highlighted.to === "undefined") {
         this.highlighted = {
           to: null,
@@ -212,25 +222,36 @@ export default {
         }
         this.highlighted.to = val;
         // записываем в инпут дату
-        this.customModel.customMaxDate = val
+        this.toValue = this.filterDate(val);
         // переопределяем открытие месяца календаря
         this.openDateTo = new Date(new Date().setMonth(new Date().getMonth() + 1))
       } else {
         // ели выбраны все даты 'from' и 'to'
-        console.log(this.highlighted)
-
         if ( Date.parse(val) < this.highlighted.from ) {
           this.highlighted = {
             to: this.highlighted.to,
             from: null
           };
           this.highlighted.from = val;
+          // записываем в инпут дату
+          this.fromValue = this.filterDate(val);
+          // переопределяем открытие месяца календаря
+          this.openDateTo = new Date(new Date().setMonth(new Date().getMonth() + 1))
         } else if ( Date.parse(val) > this.highlighted.from ) {
+          let from = this.highlighted.from;
+          // обнуление состояния всех календарей
+          Array.prototype.slice.call(document.querySelectorAll('.vdp-datepicker__clear-button')).forEach(elem => {
+            elem.click()
+          })
+          // переинициализация календаря
           this.highlighted = {
             to: null,
-            from: this.highlighted.from
-          }
+            from: from
+          };
           this.highlighted.to = val;
+          // записываем в инпут дату
+          this.fromValue = this.filterDate(this.highlighted.from);
+          this.toValue = this.filterDate(val);
         }
       }
     },
